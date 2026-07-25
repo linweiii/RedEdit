@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+rededit_env/
+venv/
+.venv/
+
+# Environment variables
+.env
+.env.local
+
+# Output directories
+rededit_outputs/
+outputs/
+results/
+logs/
+
+# Model checkpoints
+checkpoints/
+models/
+
+# Datasets
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.webp
+
+# Auxiliary scripts & internal docs
+scripts/
+PAPER_CHECKLIST.md
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
