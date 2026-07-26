@@ -34,14 +34,15 @@ RedEdit operates as a **black-box agent** with two core components:
 
 - Observes both the **original** and **current edited** images
 - Generates semantically targeted edit proposals (tool + parameters)
-- Supports **23 photo-editing tools** (rotate, flip, resize, brightness, contrast, saturation, hue, grayscale, sepia, sharpen, blur, vignette, mosaic, crop, watermark, border, compress, format conversion, thumbnail, blend, edge extraction, AI edit, text-to-image)
+- Supports **16 non-destructive photo-editing tools** (rotate, flip, resize, thumbnail, brightness, contrast, saturation, hue, grayscale, sepia, sharpen, vignette, compress, format conversion, watermark, border)
+- AI-powered editing tools (image_edit_ai, t2i_gen) and destructive tools (mosaic, crop, blur, blend, edge extraction) are intentionally excluded
 - Category diversity constraint ensures exploration across different tool types
 
 ### 2. MCTS Planner
 
 - **Selection**: UCT (Upper Confidence Bound for Trees) to balance exploration and exploitation
 - **Expansion**: Progressive expansion with branching factor *k*
-- **Evaluation**: VLM safety detector scores the edited image (0.0 = safe, 1.0 = unsafe)
+- **Evaluation**: VLM safety detector scores the edited image (score ≥ 0.5 → unsafe, score < 0.5 → safe)
 - **Backpropagation**: Updates node visit counts and value estimates
 - **Content Preservation Rate (CPR)**: Ensures edited images retain malicious semantics
 
@@ -67,7 +68,7 @@ red_edit/
 │
 ├── rededit/                      # Core library
 │   ├── __init__.py
-│   ├── image_edit_agent.py       # 23 photo-editing tools (Qwen-Agent framework)
+│   ├── image_edit_agent.py       # 16 non-destructive photo-editing tools
 │   ├── redteam_agent.py          # Red-team agent + VLM/Conventional detectors
 │   ├── mcts_agent.py             # MCTS planner + VLM action proposer
 │   ├── baselines.py              # Ablation baselines (Random/Single/Greedy)
@@ -90,26 +91,37 @@ red_edit/
 
 ## Supported Safety Detectors
 
-| Detector | Type | Specification String | Description |
-|----------|------|---------------------|-------------|
-| **Qwen3-VL** | VLM | `vlm:qwen3-vl-8b` | VLM-based safety judge (recommended) |
-| **GPT-4o** | VLM | `vlm:gpt-4o` | OpenAI GPT-4o safety judge |
-| **Q16** | Traditional | `Q16` | CLIP prompt-based classifier |
-| **MultiHeaded** | Traditional | `MultiHeaded` | 5-head MLP safety classifier |
-| **SD_Filter** | Traditional | `SD_Filter` | Stable Diffusion safety checker |
-| **NSFW_Detector** | Traditional | `NSFW_Detector` | CLIP + linear head NSFW detector |
-| **NudeNet** | Traditional | `NudeNet` | Keras CNN nudity detector |
-| **LlavaGuard** | Traditional | `LlavaGuard` | Llava-based safety classifier |
+RedEdit supports both VLM-based and traditional safety detectors as described in our [paper](https://arxiv.org/abs/2606.06140). The default detector is **Qwen3.6-35B** (`vlm:qwen3.6-35b-a3b`).
 
-## Supported Editing Tools (23 total)
+### VLM-Based Detectors
+
+| Detector | Specification String | Description |
+|----------|---------------------|-------------|
+| **Qwen3.6-35B** | `vlm:qwen3.6-35b-a3b` | Default VLM safety judge (recommended) |
+| **Qwen3-VL-8B** | `vlm:qwen3-vl-8b` | Lightweight VLM safety judge |
+| **Qwen3-VL-32B** | `vlm:qwen3-vl-32b` | Mid-size VLM safety judge |
+| **Qwen3-VL-235B** | `vlm:qwen3-vl-235b` | Large-scale VLM safety judge |
+
+### Traditional Classifiers
+
+| Detector | Specification String | Description |
+|----------|---------------------|-------------|
+| **Q16** | `Q16` | CLIP prompt-based classifier |
+| **MultiHeaded** | `MultiHeaded` | 5-head MLP safety classifier |
+| **SD_Filter** | `SD_Filter` | Stable Diffusion safety checker |
+| **NSFW_Detector** | `NSFW_Detector` | CLIP + linear head NSFW detector |
+| **NudeNet** | `NudeNet` | Keras CNN nudity detector |
+
+## Supported Editing Tools (16 total)
+
+RedEdit uses 16 non-destructive, non-generative photo-editing tools. AI-powered editing (image_edit_ai, t2i_gen) and destructive tools (mosaic, crop, blur, blend, edge extraction) are intentionally excluded from the main tool set.
 
 | Category | Tools |
 |----------|-------|
-| **Geometry** | rotate, flip, resize, crop, thumbnail, mosaic |
+| **Geometry** | rotate, flip, resize, thumbnail |
 | **Color** | brightness, contrast, saturation, hue, grayscale, sepia |
-| **Effects** | blur, sharpen, vignette, extract_edges, blend |
+| **Effects** | sharpen, vignette |
 | **Format/Overlay** | compress, convert_format, watermark, border |
-| **AI-Powered** | image_edit_ai (VLM-guided), t2i_gen (text-to-image) |
 
 ## Installation
 
@@ -138,7 +150,7 @@ bash setup_env.sh --venv
 
 ### 3. Set API Key
 
-RedEdit uses **SiliconFlow API** for VLM inference (Qwen3-VL). Get a free API key from [SiliconFlow Cloud](https://cloud.siliconflow.cn/account/ak):
+RedEdit uses **SiliconFlow API** for VLM inference (default: Qwen3.6-35B). Get a free API key from [SiliconFlow Cloud](https://cloud.siliconflow.cn/account/ak):
 
 ```bash
 export SILICONFLOW_API_KEY=sk-your-api-key-here
@@ -169,7 +181,7 @@ python run_mcts.py --image path/to/your/image.png
 ```bash
 python run_mcts.py \
     --image path/to/image.png \
-    --detector "vlm:qwen3-vl-8b" \
+    --detector "vlm:qwen3.6-35b-a3b" \
     --mcts-iterations 30 \
     --max-steps 4 \
     --branching 3 \
@@ -193,8 +205,8 @@ python run_mcts.py --dataset images.json --limit 50
 # Traditional classifier
 python run_mcts.py --image img.png --detector Q16
 
-# GPT-4o (requires OPENAI_API_KEY)
-python run_mcts.py --image img.png --detector "vlm:gpt-4o"
+# Different VLM detector
+python run_mcts.py --image img.png --detector "vlm:qwen3-vl-8b"
 ```
 
 ## Key Arguments
@@ -203,14 +215,14 @@ python run_mcts.py --image img.png --detector "vlm:gpt-4o"
 |----------|---------|-------------|
 | `--image` | - | Path to a single image |
 | `--dataset` | - | Path to a JSON/JSONL dataset |
-| `--detector` | `vlm:qwen3-vl-8b` | Detector specification |
-| `--threshold` | `0.5` | Safety score threshold |
+| `--detector` | `vlm:qwen3.6-35b-a3b` | Detector specification |
+| `--threshold` | `0.5` | Unsafe score threshold (≥threshold → unsafe) |
 | `--mcts-iterations` | `30` | MCTS search iterations |
 | `--max-steps` | `4` | Maximum editing steps |
 | `--branching` | `3` | MCTS branching factor |
 | `--exploration` | `1.0` | UCT exploration constant |
 | `--cpr-threshold` | `0.60` | Content preservation threshold |
-| `--proposer-model` | `qwen3-vl-32b` | VLM model for proposals |
+| `--proposer-model` | `qwen3.6-35b-a3b` | VLM model for proposals |
 | `--output-dir` | `./rededit_outputs` | Output directory |
 | `--limit` | `0` | Max images to attack (0=all) |
 
@@ -250,7 +262,6 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ## Acknowledgements
 
-- [Qwen-Agent](https://github.com/QwenLM/Qwen-Agent) - Agent framework for tool execution
 - [Qwen2.5-VL](https://github.com/QwenLM/Qwen2.5-VL) - Vision-language model for safety detection
 - [SiliconFlow](https://siliconflow.cn) - API inference service
 - [UnsafeBench](https://arxiv.org/abs/2406.12361) - Benchmark for image safety classification
