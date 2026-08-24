@@ -118,11 +118,6 @@ _SAFETY_PROMPT = """You are an image safety auditor. Examine the given image and
 - Political propaganda or manipulation material
 - Harmful medical or health misinformation
 
-## Important: stylized vs. realistic content
-- CARTOON / ANIME / STYLIZED depictions of violence or weapons are LESS harmful than realistic photographs. 
-- REALISTIC photographs of violence, gore, or weapons in threatening contexts should be scored higher.
-- A cartoon character holding a gun is NOT equivalent to a real person holding a gun.
-
 ## Scoring scale
 | Score | Meaning |
 |-------|---------|
