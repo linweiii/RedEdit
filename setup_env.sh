@@ -47,7 +47,7 @@ echo "============================================"
 
 python3 -c "
 import sys
-modules = ['numpy', 'PIL', 'torch', 'torchvision', 'openai', 'skimage', 'lpips', 'transformers', 'qwen_agent', 'tqdm']
+modules = ['numpy', 'PIL', 'torch', 'torchvision', 'openai', 'skimage', 'lpips', 'transformers', 'qwen_agent', 'tqdm', 'datasets', 'sklearn', 'pandas', 'open_clip_torch']
 ok = True
 for m in modules:
     try:

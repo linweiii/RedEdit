@@ -27,6 +27,7 @@ checkpoints/
 models/
 
 # Datasets
+data/
 *.png
 *.jpg
 *.jpeg
@@ -34,8 +35,7 @@ models/
 *.bmp
 *.webp
 
-# Auxiliary scripts & internal docs
-scripts/
+# Internal docs
 PAPER_CHECKLIST.md
 
 # IDE

@@ -1,16 +1,30 @@
-MIT License
+RedEdit: Agentic Red-Teaming of Image Safety Classifiers via MCTS-Guided Photo-Editing
 
 Copyright (c) 2026 Weilin Lin, Ziqi Lin, Zhenxin Zhou, Jianze Li, Tong Zhang, Hui Xiong, Li Liu
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This software is released for ACADEMIC AND RESEARCH PURPOSES ONLY.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to use,
+copy, modify, merge, publish, and distribute the Software solely for
+non-commercial academic and research purposes, and to permit persons to whom
+the Software is furnished to do so, subject to the following conditions:
+
+1. NON-COMMERCIAL USE ONLY. The Software, in whole or in part, may NOT be used,
+   directly or indirectly, for any commercial purpose, including but not limited
+   to: internal business operations, revenue-generating services, product
+   development, or any activity performed by a for-profit entity. Any
+   commercial use requires a separate license from the copyright holders.
+
+2. The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+3. Attribution. Any publication or presentation using the Software or results
+   derived from it must cite the RedEdit paper.
+
+4. This work is provided solely for safety research and responsible disclosure.
+   It must not be used to deploy attacks on production systems, to facilitate
+   policy evasion on live platforms, or to harm others.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,

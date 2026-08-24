@@ -1,7 +1,7 @@
 # RedEdit: Agentic Red-Teaming of Image Safety Classifiers via MCTS-Guided Photo-Editing
 
 [![arXiv](https://img.shields.io/badge/arXiv-2606.06140-b31b1b.svg)](https://arxiv.org/abs/2606.06140)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: Research Only](https://img.shields.io/badge/License-Research%20Only-yellow.svg)](LICENSE)
 
 > **RedEdit: Agentic Red-Teaming of Image Safety Classifiers via MCTS-Guided Photo-Editing**
 >
@@ -60,7 +60,7 @@ Original Image → [Baseline Score] → MCTS Search Loop:
 ## Repository Structure
 
 ```
-red_edit/
+RedEdit/
 ├── README.md                     # This file
 ├── requirements.txt              # Python dependencies
 ├── setup_env.sh                  # One-click environment setup
@@ -68,11 +68,12 @@ red_edit/
 │
 ├── rededit/                      # Core library
 │   ├── __init__.py
+│   ├── fncall.py                 # Lightweight function-call → text (no qwen-agent[gui])
 │   ├── image_edit_agent.py       # 16 non-destructive photo-editing tools
 │   ├── redteam_agent.py          # Red-team agent + VLM/Conventional detectors
 │   ├── mcts_agent.py             # MCTS planner + VLM action proposer
 │   ├── baselines.py              # Ablation baselines (Random/Single/Greedy)
-│   ├── vlms.py                   # VLM model loading and inference
+│   ├── vlms.py                   # VLM model loading and inference (legacy)
 │   ├── utils.py                  # Utility functions
 │   ├── unsafe_datasets.py        # UnsafeBench dataset loader
 │   └── classifiers/              # Traditional safety classifiers
@@ -83,9 +84,8 @@ red_edit/
 │       └── llavaguard_classifier.py
 │
 ├── scripts/
-│   └── download_models.py        # Download classifier model weights
+│   └── download_models.py        # Pre-download classifier model weights
 │
-├── configs/                      # Configuration files (optional)
 └── rededit_outputs/              # Default output directory
 ```
 
@@ -118,10 +118,10 @@ RedEdit uses 16 non-destructive, non-generative photo-editing tools. AI-powered 
 
 | Category | Tools |
 |----------|-------|
-| **Geometry** | rotate, flip, resize, thumbnail |
-| **Color** | brightness, contrast, saturation, hue, grayscale, sepia |
-| **Effects** | sharpen, vignette |
-| **Format/Overlay** | compress, convert_format, watermark, border |
+| **Geometry/Scale** | rotate, flip, resize, thumbnail |
+| **Color/Tone** | brightness, contrast, saturation, hue, sepia, grayscale |
+| **Format/Texture** | compress, convert_format, sharpen, vignette |
+| **Light Overlay** | watermark, border |
 
 ## Installation
 
@@ -230,18 +230,26 @@ python run_mcts.py --image img.png --detector "vlm:qwen3-vl-8b"
 
 After running, the output directory contains:
 
+**Single-image mode** (`--image`):
 ```
 rededit_outputs/
-├── attack_result.json          # Full attack log (single image mode)
-├── batch_summary.json          # Summary statistics (batch mode)
-└── image_XXXX/                 # Per-image session directories
-    ├── attack_log.json         # Detailed trajectory
-    ├── images/                 # Intermediate edited images
-    │   ├── original.png
-    │   ├── edited_step1.png
-    │   └── ...
-    └── quality_metrics.json    # PSS/SSIM/PSNR/LPIPS metrics
+└── attack_result.json          # Full attack log (trajectory, scores, CPR, quality)
 ```
+
+**Batch mode** (`--dataset`):
+```
+rededit_outputs/
+├── batch_summary.json          # Summary statistics (ASR, avg CPR, per-image results)
+└── image_XXXX/                 # Per-image session directories
+    └── attack_log.json         # Detailed trajectory (scores, tools, CPR, quality_metrics)
+        images/                 # Intermediate edited images (inside session dir)
+            ├── original.png
+            ├── edited_step1.png
+            └── ...
+```
+
+**Successful attacks** are additionally archived to `<output_dir>/../attack_success/<category>/<case_id>/`
+with `original.png`, `edited.png`, and `attack_log.json`, for manual inspection.
 
 ## Citation
 
@@ -258,10 +266,10 @@ If you find this work useful, please cite:
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+Released for **academic and research purposes only**. This project is **not** licensed for commercial use. See [LICENSE](LICENSE) for the full terms. We coordinate with detector developers through responsible disclosure; please do not use this framework to attack production systems or facilitate policy evasion.
 
 ## Acknowledgements
 
-- [Qwen2.5-VL](https://github.com/QwenLM/Qwen2.5-VL) - Vision-language model for safety detection
+- [Qwen3-VL / Qwen3.6](https://github.com/QwenLM/Qwen3-VL) - Vision-language models for safety detection and action proposal
 - [SiliconFlow](https://siliconflow.cn) - API inference service
 - [UnsafeBench](https://arxiv.org/abs/2406.12361) - Benchmark for image safety classification
