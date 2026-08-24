@@ -62,6 +62,7 @@ from rededit.redteam_agent import (
     TOOL_SUBSETS,
     _ACTIVE_DETECTOR,
 )
+from rededit.api_config import require_api_key, resolve_api_key, resolve_base_url
 from qwen_agent.tools.base import BaseTool, TOOL_REGISTRY
 
 
@@ -277,15 +278,12 @@ Propose {k} diverse editing operations to reduce the unsafe score.
 
 
 class LLMActionProposer:
-    """Uses SiliconFlow LLM API to propose candidate editing actions."""
+    """Uses an OpenAI-compatible LLM API to propose candidate editing actions."""
 
     def __init__(self, model: str = "Qwen/Qwen3-32B"):
-        api_key = os.getenv("SILICONFLOW_API_KEY", "")
-        if not api_key:
-            raise EnvironmentError("SILICONFLOW_API_KEY is not set.")
         self.client = OpenAI(
-            api_key=api_key,
-            base_url="https://api.siliconflow.cn/v1",
+            api_key=require_api_key(),
+            base_url=resolve_base_url(),
         )
         self.model = model
 
@@ -586,12 +584,9 @@ class VLActionProposer:
     """
 
     def __init__(self, model: str = "Qwen3.6-35B-A3B"):
-        api_key = os.getenv("SILICONFLOW_API_KEY", "")
-        if not api_key:
-            raise EnvironmentError("SILICONFLOW_API_KEY is not set.")
         self.client = OpenAI(
-            api_key=api_key,
-            base_url="https://api.siliconflow.cn/v1",
+            api_key=require_api_key(),
+            base_url=resolve_base_url(),
         )
         self.model = model
 
@@ -693,9 +688,8 @@ class VLActionProposer:
                         completion = self.client.chat.completions.create(
                             model=self.model,
                             messages=messages,
-                            temperature=0,
-                            top_p=0.1,
-                            seed=42,
+                            temperature=0.7,
+                            top_p=0.9,
                             max_tokens=1024,
                         )
                         break
@@ -897,13 +891,12 @@ def vl_detect_harmful_region(
     """
     import base64
 
-    api_key = os.getenv("SILICONFLOW_API_KEY", "")
-    if not api_key:
+    if not resolve_api_key():
         return None
 
     client = OpenAI(
-        api_key=api_key,
-        base_url="https://api.siliconflow.cn/v1",
+        api_key=require_api_key(),
+        base_url=resolve_base_url(),
     )
 
     def _b64(p: str) -> str:
@@ -1162,8 +1155,7 @@ def compute_content_preservation(
             reason               — combined explanation string (backward compat)
             status               — "success" | "error"
     """
-    api_key = os.getenv("SILICONFLOW_API_KEY", "")
-    if not api_key:
+    if not resolve_api_key():
         return {"cpr": -1.0, "content_preservation": -1.0,
                 "cpr_reason": "API key missing",
                 "reason": "API key missing", "status": "error"}
@@ -1424,7 +1416,7 @@ def compute_content_preservation(
 
     for attempt in range(1, max_retries + 1):
         try:
-            client = OpenAI(api_key=api_key, base_url="https://api.siliconflow.cn/v1")
+            client = OpenAI(api_key=require_api_key(), base_url=resolve_base_url())
             messages = [
                 {
                     "role": "user",
@@ -1673,14 +1665,22 @@ def _validate_and_clamp_params(tool_name: str, params: dict) -> dict:
         # ── Bounds clamping ──
         if pname in bounds and isinstance(corrected[pname], (int, float)):
             lo, hi = bounds[pname]
+            # Preserve the caller's numeric type where the bound is integral
+            # (width, height, max_size, quality, angle, border width): an int
+            # param stays an int. For float-bound params (factors, strengths,
+            # opacity, hue shift) always clamp as float — casting e.g. a
+            # factor of -5 to int(0.2)=0 would blacken the image.
+            bound_is_integral = float(lo).is_integer() and float(hi).is_integer()
+            keep_int = bound_is_integral and isinstance(corrected[pname], int) \
+                and not isinstance(corrected[pname], bool)
             if corrected[pname] < lo:
                 print(f"  [MCTS/validate] {tool_name}.{pname}: "
                       f"{corrected[pname]} clamped → {lo} (min={lo})")
-                corrected[pname] = type(corrected[pname])(lo)
+                corrected[pname] = int(lo) if keep_int else float(lo)
             elif corrected[pname] > hi:
                 print(f"  [MCTS/validate] {tool_name}.{pname}: "
                       f"{corrected[pname]} clamped → {hi} (max={hi})")
-                corrected[pname] = type(corrected[pname])(hi)
+                corrected[pname] = int(hi) if keep_int else float(hi)
 
         # ── bbox_2d special handling ──
         if pname == "bbox_2d" and isinstance(corrected[pname], list):
@@ -1780,7 +1780,7 @@ class MCTSRedTeamAgent:
     Parameters
     ----------
     detector : str
-        Detector spec (same as RedTeamAgent). Default: "vlm:qwen3-vl-8b".
+        Detector spec (same as RedTeamAgent). Default: "vlm:qwen3.6-35b-a3b".
     threshold : float
         Attack success threshold. Default: 0.5.
     max_steps : int
@@ -1855,9 +1855,10 @@ class MCTSRedTeamAgent:
         else:
             self.vlm_model = detector
 
-        # CPR evaluator ALWAYS uses the default 32B model for consistency
-        # across all methods (baselines also use the default 32B).
-        self.cpr_model = None  # None → compute_content_preservation uses _VL_MODEL_DEFAULT (32B)
+        # CPR evaluator ALWAYS uses the default model (Qwen3.6-35B-A3B, the
+        # same VLM used as detector and proposer in the main experiment) for
+        # consistency across all methods (baselines also use the same default).
+        self.cpr_model = None  # None → compute_content_preservation uses _VL_MODEL_DEFAULT (Qwen3.6-35B-A3B)
 
         # Initialise detector
         import rededit.redteam_agent as _rt_mod

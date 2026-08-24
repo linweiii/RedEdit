@@ -42,9 +42,13 @@ from PIL import (Image, ImageDraw, ImageEnhance,
                  ImageFilter, ImageFont, ImageOps)
 
 from qwen_agent.agents import Assistant
-from qwen_agent.gui.utils import convert_fncall_to_text
 from qwen_agent.llm.schema import ASSISTANT, CONTENT, FUNCTION, NAME, ROLE
 from qwen_agent.tools.base import BaseTool, register_tool
+
+# convert_fncall_to_text is a pure function that upstream places in
+# qwen_agent.gui.utils, which drags in the heavy `qwen-agent[gui]` extra
+# (gradio, ...) at import time. We use our lightweight local port instead.
+from rededit.fncall import convert_fncall_to_text
 
 # ---------------------------------------------------------------------------
 # ① Configuration  ── edit these values to point at your model servers

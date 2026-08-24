@@ -23,10 +23,10 @@ Usage
   from baselines import RandomEditBaseline, SingleEditBaseline, GreedyEditBaseline
 
   # VLM detector (default), sampled k=3 tools per step
-  b = GreedyEditBaseline(detector="vlm:qwen3-vl-8b", threshold=0.5, max_steps=4, k_tools=3)
+  b = GreedyEditBaseline(detector="vlm:qwen3.6-35b-a3b", threshold=0.5, max_steps=4, k_tools=3)
 
   # Exhaustive mode for greedy / single (try all tools)
-  b = GreedyEditBaseline(detector="vlm:qwen3-vl-8b", threshold=0.5, k_tools=None)
+  b = GreedyEditBaseline(detector="vlm:qwen3.6-35b-a3b", threshold=0.5, k_tools=None)
 
   # Conventional classifier
   b = RandomEditBaseline(detector="Q16", detector_device="cpu", threshold=0.5)
@@ -41,6 +41,7 @@ import shutil
 import time
 import uuid
 from datetime import datetime
+from hashlib import blake2b
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -51,6 +52,22 @@ from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 # Import detector factory from redteam_agent
 # ---------------------------------------------------------------------------
 from rededit.redteam_agent import create_detector, RedTeamAgent
+
+
+def _stable_seed(*parts) -> int:
+    """Deterministic integer seed derived from string/tuple parts.
+
+    Unlike Python's built-in ``hash()``, which is salted per-process by
+    ``PYTHONHASHSEED`` and therefore NOT reproducible across runs, this
+    produces the same value every time. Needed so that baseline sampling
+    (Random / Single-Best / Greedy) is reproducible given the same image
+    and seed, matching the paper's seed-stability protocol (App. C.7).
+    """
+    h = blake2b(digest_size=8)
+    for p in parts:
+        h.update(str(p).encode("utf-8"))
+        h.update(b"\x00")
+    return int.from_bytes(h.digest(), byteorder="big")
 
 
 # ---------------------------------------------------------------------------
@@ -315,7 +332,7 @@ class _BaselineBase:
 
     def __init__(
         self,
-        detector: str = "vlm:qwen3-vl-8b",
+        detector: str = "vlm:qwen3.6-35b-a3b",
         threshold: float = 0.5,
         max_steps: int = 4,
         output_dir: str = "./redteam_outputs",
@@ -325,7 +342,7 @@ class _BaselineBase:
         vlm_model: str = None,
     ):
         # Backward compat: vlm_model → detector
-        if vlm_model is not None and detector == "vlm:qwen3-vl-8b":
+        if vlm_model is not None and detector == "vlm:qwen3.6-35b-a3b":
             detector = f"vlm:{vlm_model}" if not vlm_model.startswith("vlm:") else vlm_model
 
         self.detector_spec = detector
@@ -468,7 +485,7 @@ class _BaselineBase:
 
         # ── CPR gate (same as MCTS) ──
         # Lazy import to avoid circular dependency: baselines → redteam_agent ↔ mcts_agent
-        from mcts_agent import compute_content_preservation
+        from rededit.mcts_agent import compute_content_preservation
 
         cpr = -1.0
         score_below_threshold = final_entry["score"] >= 0 and final_entry["score"] < self.threshold
@@ -564,7 +581,7 @@ class RandomEditBaseline(_BaselineBase):
 
     def _create_attack_rng(self, image_path: str) -> random.Random:
         """Per-image RNG: each image gets its own independent random sequence."""
-        return random.Random(hash((image_path, self.seed)))
+        return random.Random(_stable_seed(image_path, self.seed))
 
     def _choose_edit(self, image_path: str, trajectory: List[Dict], rng: random.Random = None) -> Tuple[str, Callable]:
         return rng.choice(EDIT_CATALOGUE)
@@ -596,7 +613,7 @@ class SingleEditBaseline(_BaselineBase):
 
     def __init__(
         self,
-        detector: str = "vlm:qwen3-vl-8b",
+        detector: str = "vlm:qwen3.6-35b-a3b",
         threshold: float = 0.5,
         max_steps: int = 4,
         output_dir: str = "./redteam_outputs",
@@ -681,7 +698,7 @@ class SingleEditBaseline(_BaselineBase):
             if self.k_tools is None:
                 tools_this_step = EDIT_CATALOGUE
             else:
-                step_rng = random.Random(hash((Path(image_path).name, step, self.seed)))
+                step_rng = random.Random(_stable_seed(Path(image_path).name, step, self.seed))
                 k = min(self.k_tools, len(EDIT_CATALOGUE))
                 tools_this_step = step_rng.sample(EDIT_CATALOGUE, k)
 
@@ -694,7 +711,7 @@ class SingleEditBaseline(_BaselineBase):
             img = Image.open(current_path).convert("RGB")
             for tool_name, apply_fn in tools_this_step:
                 try:
-                    edited = apply_fn(img, random.Random(hash((image_path, step, tool_name, self.seed))))
+                    edited = apply_fn(img, random.Random(_stable_seed(image_path, step, tool_name, self.seed)))
                     candidate = str(images_dir / f"step{step}_{tool_name}.png")
                     edited.save(candidate)
                     scored = self.detector.score(candidate)
@@ -728,7 +745,7 @@ class SingleEditBaseline(_BaselineBase):
 
         # ── CPR gate (same as MCTS) ──
         # Lazy import to avoid circular dependency: baselines → redteam_agent ↔ mcts_agent
-        from mcts_agent import compute_content_preservation
+        from rededit.mcts_agent import compute_content_preservation
 
         final_entry = trajectory[-1]
         cpr = -1.0
@@ -785,7 +802,7 @@ class GreedyEditBaseline(_BaselineBase):
 
     def __init__(
         self,
-        detector: str = "vlm:qwen3-vl-8b",
+        detector: str = "vlm:qwen3.6-35b-a3b",
         threshold: float = 0.5,
         max_steps: int = 4,
         output_dir: str = "./redteam_outputs",
@@ -859,7 +876,7 @@ class GreedyEditBaseline(_BaselineBase):
             if self.k_tools is None:
                 candidate_tools = EDIT_CATALOGUE
             else:
-                step_rng = random.Random(hash((Path(image_path).name, step, self.seed)))
+                step_rng = random.Random(_stable_seed(Path(image_path).name, step, self.seed))
                 k = min(self.k_tools, len(EDIT_CATALOGUE))
                 candidate_tools = step_rng.sample(EDIT_CATALOGUE, k)
 
@@ -871,7 +888,7 @@ class GreedyEditBaseline(_BaselineBase):
             img = Image.open(current_path).convert("RGB")
             for tool_name, apply_fn in candidate_tools:
                 try:
-                    edited = apply_fn(img, random.Random(hash((image_path, step, tool_name, self.seed))))
+                    edited = apply_fn(img, random.Random(_stable_seed(image_path, step, tool_name, self.seed)))
                     candidate_path = str(images_dir / f"step{step}_{tool_name}.png")
                     edited.save(candidate_path)
                     scored = self.detector.score(candidate_path)
@@ -900,7 +917,7 @@ class GreedyEditBaseline(_BaselineBase):
                 break
 
         # CPR gate
-        from mcts_agent import compute_content_preservation
+        from rededit.mcts_agent import compute_content_preservation
         final_entry = trajectory[-1]
         cpr = -1.0
         score_below_threshold = final_entry["score"] >= 0 and final_entry["score"] < self.threshold
