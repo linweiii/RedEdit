@@ -62,12 +62,6 @@ SEEDGEN_SOURCE = "SeedGen"
 _DATASET_META_MAP = {
     "UnsafeBench":      ("UnsafeBench", ["train/images/metadata.jsonl",
                                           "test/images/metadata.jsonl"]),
-    "SeedGen":          ("SeedGen",     ["seed_metadata.jsonl"]),
-    "SeedGen_sketch":   ("SeedGen",     ["sketch_metadata.jsonl"]),
-    "SeedGen_bezier":   ("SeedGen",     ["bezier_metadata.jsonl"]),
-    "EnhancedSeedGen":         ("EnhancedSeedGen", ["seed_metadata.jsonl"]),
-    "EnhancedSeedGen_sketch":  ("EnhancedSeedGen", ["sketch_metadata.jsonl"]),
-    "EnhancedSeedGen_bezier":  ("EnhancedSeedGen", ["bezier_metadata.jsonl"]),
 }
 
 
@@ -450,15 +444,6 @@ def fetch_evaluation_dataset(dataset_name):
             - "Violence_Dataset": Violence detection dataset
             - "Self-harm_Dataset": Self-harm content detection dataset
             - "UnsafeBench_test" or "UnsafeBench_TEST": UnsafeBench test set
-            - "SeedGen": All generated seed images (all categories)
-            - "SeedGen_{category}": Generated seed images for a specific category
-                                    e.g. "SeedGen_Hate", "SeedGen_Violence"
-            - "EnhancedSeedGen": Enhanced (subject-dominant) images, all categories
-            - "EnhancedSeedGen_{variant}": e.g. "EnhancedSeedGen_sketch",
-                                           "EnhancedSeedGen_bezier"
-            - "EnhancedSeedGen_{variant}_{category}": e.g.
-                  "EnhancedSeedGen_sketch_Hate", "EnhancedSeedGen_bezier_Violence"
-            - "EnhancedSeedGen_{category}": e.g. "EnhancedSeedGen_Hate"
     
     Returns:
         Dataset: PyTorch Dataset object for the specified dataset
@@ -510,33 +495,6 @@ def fetch_evaluation_dataset(dataset_name):
         print(f"Loaded {len(dataset)} items from SeedGen ({desc})")
         return dataset
 
-    elif dataset_name.startswith("EnhancedSeedGen"):
-        # Naming convention (mirrors SeedGen):
-        #   "EnhancedSeedGen"                → original, all categories
-        #   "EnhancedSeedGen_Hate"           → original, Hate only
-        #   "EnhancedSeedGen_sketch"         → sketch, all categories
-        #   "EnhancedSeedGen_sketch_Hate"    → sketch, Hate only
-        #   "EnhancedSeedGen_bezier"         → bezier, all categories
-        #   "EnhancedSeedGen_bezier_Hate"    → bezier, Hate only
-        image_root = os.path.join(base_dir, "data", "EnhancedSeedGen")
-        # Strip the "EnhancedSeedGen" prefix, rest is same as SeedGen parsing
-        suffix = dataset_name[len("EnhancedSeedGen"):]  # e.g. "", "_Hate", "_sketch_Hate"
-        parts = suffix.lstrip("_").split("_", 1) if suffix.lstrip("_") else []
-
-        variant = "images"
-        category = None
-        if len(parts) >= 1:
-            if parts[0] in ("sketch", "bezier"):
-                variant = parts[0]
-                category = parts[1] if len(parts) > 1 else None
-            else:
-                category = "_".join(parts)  # e.g. "Illegal_activity"
-
-        dataset = SeedGenDataset(image_root=image_root, category=category, variant=variant)
-        desc = f"variant={variant}, category={category or 'all'}"
-        print(f"Loaded {len(dataset)} items from EnhancedSeedGen ({desc})")
-        return dataset
-    
     else:
         raise ValueError(f"Unknown dataset name: {dataset_name}")
     
