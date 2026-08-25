@@ -7,7 +7,7 @@
 >
 > Weilin Lin, Ziqi Lin, Zhenxing Zhou, Jianze Li, Tong Zhang, Hui Xiong, Li Liu
 >
-> *Under Review* | [Paper](https://arxiv.org/abs/2606.06140)
+> *EMNLP 2026 Main* | [Paper](https://arxiv.org/abs/2606.06140)
 
 ## Overview
 
